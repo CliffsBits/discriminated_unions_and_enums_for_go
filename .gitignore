@@ -1,0 +1,64 @@
+# Box Types Go Implementation - Git Ignore
+
+# Compiled Go binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Compiled Go toolchain (don't check in the built compiler)
+go-release-branch.go1.25/bin/
+go-release-branch.go1.25/pkg/
+
+# Build artifacts
+*.6
+*.8
+*.a
+*.so
+*.o
+
+# Temporary files
+*~
+*.tmp
+*.swp
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Development test files
+test_*.go
+test_*.exe
+
+# Debug and development directories
+printbox/
+backup/
+_gen/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Claude Code files
+CLAUDE.md
+.claude_code_session
+.claude_session
+*_claude_*

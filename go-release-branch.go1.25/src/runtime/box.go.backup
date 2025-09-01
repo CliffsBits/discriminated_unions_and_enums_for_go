@@ -1,0 +1,119 @@
+// Copyright 2025 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+package runtime
+
+import (
+	"unsafe"
+)
+
+// box represents the runtime representation of a box value.
+// It has the same structure as eface (empty interface) but with
+// box-specific semantics for type checking and conversion.
+// Layout: struct { Type *_type; void *data; }
+type box struct {
+	_type *_type
+	data  unsafe.Pointer
+}
+
+// convT2B converts a value of type t to a box.
+// This is similar to convT2E but specifically for box types.
+func convT2B(t *_type, elem unsafe.Pointer) box {
+	if raceenabled {
+		raceReadObjectPC(t, elem, getcallerpc(), funcPC(convT2B))
+	}
+	if msanenabled {
+		msanread(elem, t.Size_)
+	}
+	if asanenabled {
+		asanread(elem, t.Size_)
+	}
+
+	x := box{_type: t}
+	if t.Size_ <= maxZero {
+		if t.PtrBytes == 0 {
+			x.data = unsafe.Pointer(&zeroVal[0])
+		} else {
+			// Allocate a zero value and copy the data
+			x.data = mallocgc(t.Size_, t, false)
+			typedmemmove(t, x.data, elem)
+		}
+	} else {
+		x.data = mallocgc(t.Size_, t, true)
+		typedmemmove(t, x.data, elem)
+	}
+	return x
+}
+
+// convB2V extracts the value from a box to a value of the specified type.
+// This performs the box-to-variant conversion.
+func convB2V(b box, targetType *_type) unsafe.Pointer {
+	// Check if the box contains the target type
+	if b._type == nil || b._type != targetType {
+		// This should not happen in well-typed code, but handle it gracefully
+		panic("box type mismatch in conversion")
+	}
+	
+	return b.data
+}
+
+// assertB2V is used for box-to-variant type assertions.
+// It returns the value and a boolean indicating success.
+func assertB2V(b box, targetType *_type) (unsafe.Pointer, bool) {
+	if b._type == nil || b._type != targetType {
+		return nil, false
+	}
+	
+	return b.data, true
+}
+
+// convT2Bnoptr converts a non-pointer value to a box.
+// This is an optimized version for types without pointers.
+func convT2Bnoptr(t *_type, elem unsafe.Pointer) box {
+	if raceenabled {
+		raceReadObjectPC(t, elem, getcallerpc(), funcPC(convT2Bnoptr))
+	}
+	if msanenabled {
+		msanread(elem, t.Size_)
+	}
+	if asanenabled {
+		asanread(elem, t.Size_)
+	}
+
+	x := box{_type: t}
+	if t.Size_ <= maxZero {
+		x.data = unsafe.Pointer(&zeroVal[0])
+	} else {
+		x.data = mallocgc(t.Size_, t, false)
+		memmove(x.data, elem, t.Size_)
+	}
+	return x
+}
+
+// boxequal compares two box values for equality.
+// Similar to nilinterequal but for box types.
+func boxequal(p, q unsafe.Pointer) bool {
+	x := *(*box)(p)
+	y := *(*box)(q)
+	return x._type == y._type && efaceeq(x._type, x.data, y.data)
+}
+
+// boxhash computes the hash of a box value.
+// Similar to nilinterhash but for box types.
+func boxhash(p unsafe.Pointer, h uintptr) uintptr {
+	a := (*box)(p)
+	t := a._type
+	if t == nil {
+		return h
+	}
+	if t.Equal == nil {
+		// See comment in interhash above.
+		panic(errorString("hash of unhashable type " + toRType(t).string()))
+	}
+	if isDirectIface(t) {
+		return c1 * typehash(t, unsafe.Pointer(&a.data), h^c0)
+	} else {
+		return c1 * typehash(t, a.data, h^c0)
+	}
+}
